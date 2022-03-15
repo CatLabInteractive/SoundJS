@@ -496,6 +496,8 @@ this.createjs = this.createjs || {};
 		if (this._isCanceled() || !this.hasEventListener("error")) { return; }
 		if (event == null) {
 			event = new createjs.ErrorEvent("PRELOAD_ERROR_EMPTY"); // TODO: Populate error
+		} else if (typeof event.type === 'undefined') {
+			event = new createjs.ErrorEvent(event.message);
 		}
 		this.dispatchEvent(event);
 	};
