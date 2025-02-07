@@ -157,6 +157,8 @@ this.createjs = this.createjs || {};
 	p._handleMediaError = function(error) {
 		clearTimeout(this.delayTimeoutId); // clear timeout that plays delayed sound
 
+		console.log(error);
+
 		this.playState = createjs.Sound.PLAY_FAILED;
 		this._sendEvent("failed");
 	};
