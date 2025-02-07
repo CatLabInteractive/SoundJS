@@ -99,6 +99,9 @@ this.createjs = this.createjs || {};
 	 * @protected
 	 */
 	p._mediaErrorHandler = function(error) {
+
+		console.log('Error loading audio: ', error);
+
 		this._media.release();
 		this._sendError();
 	};
