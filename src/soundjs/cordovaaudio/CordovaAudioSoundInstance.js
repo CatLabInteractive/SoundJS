@@ -240,7 +240,7 @@ this.createjs = this.createjs || {};
 
 	p._updateVolume = function () {
 		var newVolume = (this._muted || createjs.Sound._masterMute) ? 0 : this._volume * createjs.Sound._masterVolume;
-		this._playbackResource.setVolume(newVolume);
+		//this._playbackResource.setVolume(newVolume);
 	};
 
 	p._calculateCurrentPosition = function() {
