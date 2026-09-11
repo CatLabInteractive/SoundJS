@@ -54,6 +54,7 @@ this.createjs = this.createjs || {};
 	 * <li>pan - The left-right pan of the sound (if supported), between -1 (left) and 1 (right).</li>
 	 * <li>startTime - To create an audio sprite (with duration), the initial offset to start playback and loop from, in milliseconds.</li>
 	 * <li>duration - To create an audio sprite (with startTime), the amount of time to play the clip for, in milliseconds.</li>
+	 * <li>startAt - Web Audio only: the AudioContext time in seconds to start playback at (null or past = now).</li>
 	 * </ul>
 	 *
 	 * <h4>Example</h4>
@@ -138,6 +139,17 @@ this.createjs = this.createjs || {};
 		 * @default null
 		 */
 		this.duration = null;
+
+		/**
+		 * Web Audio only: the AudioContext time (in seconds) at which playback should start. A value in the
+		 * past, or null, starts playback immediately. Starting in the future is sample-accurate, which a
+		 * "now" start is not on devices with a coarse render quantum.
+		 * @property startAt
+		 * @type {number}
+		 * @default null
+		 * @since 1.1.0
+		 */
+		this.startAt = null;
 	};
 	var p = PlayPropsConfig.prototype = {};
 	var s = PlayPropsConfig;
