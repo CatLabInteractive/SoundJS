@@ -725,6 +725,7 @@ this.createjs = this.createjs || {};
 			this._setStartTime(playProps.startTime);
 			this._setDuration(playProps.duration);
 		}
+		if (playProps.startAt != null) { this.startAt = playProps.startAt; }
 
 		if (this._playbackResource != null && this._position < this._duration) {
 			this._paused = false;
