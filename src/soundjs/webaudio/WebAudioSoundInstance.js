@@ -88,6 +88,16 @@ this.createjs = this.createjs || {};
 		 */
 		this.sourceNode = null;
 
+		/**
+		 * Whether the current play is an infinite loop on a single, natively looping source node
+		 * (see {{#crossLink "WebAudioSoundInstance/nativeLoops:property"}}{{/crossLink}}).
+		 * @property nativeLoop
+		 * @type {Boolean}
+		 * @default false
+		 * @since 1.1.0
+		 */
+		this.nativeLoop = false;
+
 
 // private properties
 		/**
@@ -161,6 +171,21 @@ this.createjs = this.createjs || {};
 	s.destinationNode = null;
 
 	/**
+	 * Play infinite loops (loop = -1) on ONE source node with <code>loop = true</code> instead of a chain of
+	 * one node per repetition. The chain is refilled from a timer armed relative to when it last ran, so
+	 * main-thread stalls accumulate and once they add up to a loop length the next repetition is created
+	 * after it should have started: an audible gap. A native loop involves no JS while it plays. It
+	 * dispatches no "loop" event, and its {{#crossLink "AbstractSoundInstance/position:property"}}{{/crossLink}}
+	 * wraps to the repetition in progress. Finite loop counts always use the chain.
+	 * @property nativeLoops
+	 * @type {Boolean}
+	 * @default true
+	 * @static
+	 * @since 1.1.0
+	 */
+	s.nativeLoops = true;
+
+	/**
 	 * Value to set panning model to equal power for WebAudioSoundInstance.  Can be "equalpower" or 0 depending on browser implementation.
 	 * @property _panningModel
 	 * @type {Number / String}
@@ -193,6 +218,15 @@ this.createjs = this.createjs || {};
 	};
 
 	p._removeLooping = function(value) {
+		if (this.nativeLoop && this.sourceNode) {
+			// Let the repetition in progress finish, then complete.
+			this.sourceNode.loop = false;
+			var remainingMs = this._duration - this._calculateCurrentPosition();
+			clearTimeout(this._soundCompleteTimeout);
+			this._soundCompleteTimeout = setTimeout(this._endedHandler, Math.max(0, remainingMs));
+			this.nativeLoop = false;
+			return;
+		}
 		this._sourceNodeNext = this._cleanUpAudioNode(this._sourceNodeNext);
 	};
 
@@ -217,6 +251,7 @@ this.createjs = this.createjs || {};
 		clearTimeout(this._soundCompleteTimeout);
 
 		this._playbackStartTime = 0;	// This is used by _getPosition
+		this.nativeLoop = false;
 	};
 
 	/**
@@ -244,16 +279,59 @@ this.createjs = this.createjs || {};
 	p._handleSoundReady = function (event) {
 		this.gainNode.connect(s.destinationNode);  // this line can cause a memory leak.  Nodes need to be disconnected from the audioDestination or any sequence that leads to it.
 
+		// A future startAt is honoured sample-accurately; null or past = now.
+		var now = s.context.currentTime;
+		var startAt = this.startAt;
+		this.startAt = null;
+		var at = (typeof startAt === "number" && startAt > now) ? startAt : now;
+		this.scheduledAt = at;
+		this.nativeLoop = false;
+
 		var dur = this._duration * 0.001,
 			pos = Math.min(Math.max(0, this._position) * 0.001, dur);
-		this.sourceNode = this._createAndPlayAudioNode((s.context.currentTime - dur), pos);
+
+		if (this._loop < 0 && s.nativeLoops) {
+			this._startNativeLoop(at, pos, dur);
+			return;
+		}
+
+		this.sourceNode = this._createAndPlayAudioNode((at - dur), pos);
 		this._playbackStartTime = this.sourceNode.startTime - pos;
 
-		this._soundCompleteTimeout = setTimeout(this._endedHandler, (dur - pos) * 1000);
+		this._soundCompleteTimeout = setTimeout(this._endedHandler, (dur - pos + (at - now)) * 1000);
 
 		if(this._loop != 0) {
 			this._sourceNodeNext = this._createAndPlayAudioNode(this._playbackStartTime, 0);
 		}
+	};
+
+	/**
+	 * Start an infinite loop on one natively looping source node (see
+	 * {{#crossLink "WebAudioSoundInstance/nativeLoops:property"}}{{/crossLink}}).
+	 * @method _startNativeLoop
+	 * @param {Number} at The context time to start at, in seconds.
+	 * @param {Number} pos The position in the sound to start at, in seconds.
+	 * @param {Number} dur The duration of the sound, in seconds.
+	 * @protected
+	 * @since 1.1.0
+	 */
+	p._startNativeLoop = function (at, pos, dur) {
+		if (pos >= dur) { pos = 0; }
+		var spriteStart = this._startTime * 0.001;
+
+		var audioNode = s.context.createBufferSource();
+		audioNode.buffer = this.playbackResource;
+		audioNode.connect(this.panNode);
+		audioNode.loop = true;
+		audioNode.loopStart = spriteStart;
+		audioNode.loopEnd = spriteStart + dur;
+		audioNode.startTime = at;
+		audioNode.start(at, spriteStart + pos);
+
+		this.sourceNode = audioNode;
+		this._sourceNodeNext = null;
+		this._playbackStartTime = at - pos;
+		this.nativeLoop = true;
 	};
 
 	/**
@@ -276,7 +354,7 @@ this.createjs = this.createjs || {};
 	};
 
 	p._pause = function () {
-		this._position = (s.context.currentTime - this._playbackStartTime) * 1000;  // * 1000 to give milliseconds, lets us restart at same point
+		this._position = this._calculateCurrentPosition();  // lets us restart at same point (wrapped for a native loop)
 		this.sourceNode = this._cleanUpAudioNode(this.sourceNode);
 		this._sourceNodeNext = this._cleanUpAudioNode(this._sourceNodeNext);
 
@@ -303,7 +381,11 @@ this.createjs = this.createjs || {};
 	};
 
 	p._calculateCurrentPosition = function () {
-		return ((s.context.currentTime - this._playbackStartTime) * 1000); // pos in seconds * 1000 to give milliseconds
+		var ms = (s.context.currentTime - this._playbackStartTime) * 1000; // pos in seconds * 1000 to give milliseconds
+		if (this.nativeLoop && this._duration > 0 && ms >= this._duration) {
+			ms = ms % this._duration; // the repetition in progress
+		}
+		return ms;
 	};
 
 	p._updatePosition = function () {
