@@ -115,6 +115,25 @@ this.createjs = this.createjs || {};
 		 * @since 0.4.0
 		 */
 		this.delayTimeoutId = null;
+
+		/**
+		 * Web Audio only: the AudioContext time (seconds) the next play should start at. Consumed by the
+		 * play; null or a time in the past means "now". See {{#crossLink "PlayPropsConfig/startAt:property"}}{{/crossLink}}.
+		 * @property startAt
+		 * @type {Number}
+		 * @default null
+		 * @since 1.1.0
+		 */
+		this.startAt = null;
+
+		/**
+		 * Web Audio only: the AudioContext time (seconds) the current play started, or will start, at.
+		 * @property scheduledAt
+		 * @type {Number}
+		 * @default null
+		 * @since 1.1.0
+		 */
+		this.scheduledAt = null;
 		// TODO consider moving delay into AbstractSoundInstance so it can be handled by plugins
 
 
@@ -399,6 +418,7 @@ this.createjs = this.createjs || {};
 			this._setStartTime(playProps.startTime);
 			this._setDuration(playProps.duration);
 		}
+		if (playProps.startAt != null) { this.startAt = playProps.startAt; }
 		return this;
 	};
 
@@ -705,6 +725,7 @@ this.createjs = this.createjs || {};
 			this._setStartTime(playProps.startTime);
 			this._setDuration(playProps.duration);
 		}
+		if (playProps.startAt != null) { this.startAt = playProps.startAt; }
 
 		if (this._playbackResource != null && this._position < this._duration) {
 			this._paused = false;
